@@ -3,9 +3,17 @@ const app = express();
 const { resolve } = require('path');
 const port = process.env.PORT || 3000;
 
+// importing the dotenv module to use environment variables:
+require('dotenv').config();
+
+const api_key = process.env.SECRET_KEY;
+
+const stripe = require('stripe')(api_key);
+
 // ------------ Imports & necessary things here ------------
 
 // Setting up the static folder:
+// app.use(express.static(resolve(__dirname, "./client")));
 app.use(express.static(resolve(__dirname, process.env.STATIC_DIR)));
 
 app.use(express.json());
@@ -42,20 +50,26 @@ app.get('/workshop3', (req, res) => {
   res.sendFile(path);
 });
 
-// Mock domain URL
-const domainURL = process.env.DOMAIN || 'http://localhost:3000';
+// ____________________________________________________________________________________
 
-// Mock checkout session creation
+const domainURL = process.env.DOMAIN;
 app.post('/create-checkout-session/:pid', async (req, res) => {
   const priceId = req.params.pid;
 
-  // Mock session creation
-  const session = {
-    id: `mock_session_id_${priceId}`,
-  };
-
-  console.log('Mock session created for priceId:', priceId);
-
+  const session = await stripe.checkout.sessions.create({
+    mode: 'payment',
+    success_url: `${domainURL}/success?id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${domainURL}/cancel`,
+    payment_method_types: ['card'],
+    line_items: [
+      {
+        price: priceId,
+        quantity: 1,
+      },
+    ],
+    // allowing the use of promo-codes:
+    allow_promotion_codes: true,
+  });
   res.json({
     id: session.id,
   });
@@ -64,5 +78,5 @@ app.post('/create-checkout-session/:pid', async (req, res) => {
 // Server listening:
 app.listen(port, () => {
   console.log(`Server listening on port: ${port}`);
-  console.log(`You may access your app at: ${domainURL}`);
+  console.log(`You may access you app at: ${domainURL}`);
 });
